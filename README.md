@@ -47,6 +47,9 @@ A main `justfile` imports one `.just` file per category:
 
 ```
 justfile
+├── lib/
+│   ├── tools.tsv      # tool registry (single source of truth)
+│   └── rig.sh         # shared helper functions
 ├── dev/
 │   ├── cli.just       # system packages + cargo
 │   ├── python.just    # uv tool install
@@ -57,6 +60,8 @@ justfile
 └── desktop/
     └── apps.just      # desktop applications
 ```
+
+`lib/tools.tsv` is the registry that maps every tool to its binary name, group, install method, and brew package name. The helper functions in `lib/rig.sh` read from this file — no metadata is hardcoded in multiple places.
 
 The justfile detects your OS and distro at startup, then sets `sys_install` to the right package manager:
 
@@ -80,52 +85,84 @@ ripgrep:
 
 Cross-platform managers (cargo, uv, go, npm) work unchanged everywhere.
 
-## Three patterns for adding a package
+## Adding a new tool
 
-**Pattern 1** — name matches, use your system package manager:
+The quickest way is the interactive command:
+
+```bash
+just add
+```
+
+It prompts for the tool name, group, install method, and install command, then writes both the recipe and the registry entry for you.
+
+To add a tool manually, you need to touch two (optionally three) files:
+
+### 1. Register the tool in `lib/tools.tsv`
+
+This is the single source of truth for all tool metadata. Add one tab-separated line:
+
+```
+# tool	binary	group	method	pkg	uninstall_cmd
+mytool	-	cli	system	-	-
+```
+
+| Field | Description | Default (`-`) |
+|---|---|---|
+| `tool` | Recipe/tool name | — |
+| `binary` | CLI binary name (for PATH detection) | same as tool |
+| `group` | `cli`, `python`, `node`, `go`, `rust`, `lsp`, or `desktop` | — |
+| `method` | `system`, `cask`, `cargo`, `go`, `npm`, `uv`, or `custom` | — |
+| `pkg` | Brew package name (when it differs from tool name) | same as tool |
+| `uninstall_cmd` | Custom uninstall command (when the default isn't enough) | auto-generated from method |
+
+### 2. Add a recipe to the appropriate `.just` file
+
+Pick the file that matches the group:
+
+| Group | File |
+|---|---|
+| cli | `dev/cli.just` |
+| python | `dev/python.just` |
+| node | `dev/node.just` |
+| go | `dev/go.just` |
+| rust | `dev/rust.just` |
+| lsp | `dev/lsp.just` |
+| desktop | `desktop/apps.just` |
+
+A minimal recipe looks like:
 
 ```just
-# dev/cli.just
 [group('cli')]
-htop:
-    @echo "installing/upgrading htop..."
-    @{{ sys_install }} htop
+mytool:
+    @echo "installing/upgrading mytool..."
+    @{{ sys_install }} mytool
 ```
 
-Then add `htop` to the group dependency list in the main `justfile`:
+Common variations:
 
 ```just
-cli: ripgrep jq bat fzf htop tmux eza zoxide fd
+# Brew cask (macOS desktop app)
+@brew install --cask myapp
+
+# Cargo with flags
+@cargo install --locked mytool-cli
+
+# Pin a version
+@uv tool install black==24.2.0
+
+# Custom install script
+@curl -LsSf https://example.com/install.sh | sh
 ```
 
-**Pattern 2** — pin a version:
+### 3. (Optional) Add to the group dependency list
+
+In the main `justfile`, add the tool name to its group target so `just cli` (or whichever group) includes it:
 
 ```just
-# dev/python.just
-[group('python')]
-black:
-    @echo "installing/upgrading black..."
-    @uv tool install black==24.2.0
+cli: ripgrep jq bat fzf htop ... mytool
 ```
 
-**Pattern 3** — target name differs from package name:
-
-```just
-# dev/cli.just — `just fd` runs `cargo install fd-find`
-[group('cli')]
-fd:
-    @echo "installing/upgrading fd..."
-    @cargo install fd-find
-```
-
-**Custom install scripts** — when a tool isn't in any package manager:
-
-```just
-[group('python')]
-uv:
-    @echo "installing/upgrading uv..."
-    @curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+This step is only needed if you want the tool included when running the group target directly. Tools registered in `lib/tools.tsv` are always included in `just all`, `just update`, and `just doctor` regardless.
 
 ## Granularity
 
