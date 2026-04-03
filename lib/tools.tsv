@@ -1,0 +1,64 @@
+# Tool registry — single source of truth for all tool metadata
+# Fields are tab-separated. Use "-" for default (= tool name).
+#
+# tool	binary	group	method	pkg	uninstall_cmd
+ripgrep	rg	cli	system	-	-
+jq	-	cli	system	-	-
+bat	-	cli	system	-	-
+fzf	-	cli	system	-	-
+htop	-	cli	system	-	-
+tmux	-	cli	system	-	-
+fd	-	cli	cargo	-	cargo uninstall fd-find
+eza	-	cli	cargo	-	-
+zoxide	-	cli	cargo	-	-
+fish	-	cli	system	-	-
+awscli	aws	cli	system	-	-
+starship	-	cli	custom	-	-
+neovim	nvim	cli	system	-	-
+fisher	-	cli	custom	-	fish -c 'fisher remove jorgebucaran/fisher'
+docker	-	cli	cask	-	-
+kubectl	-	cli	system	-	-
+gh	-	cli	system	-	-
+terraform	-	cli	system	-	-
+helm	-	cli	system	-	-
+op	-	cli	cask	1password-cli	-
+claude-code	claude	cli	custom	-	npm uninstall -g @anthropic-ai/claude-code
+uv	-	python	custom	-	rm -f ~/.local/bin/uv ~/.local/bin/uvx
+ruff	-	python	uv	-	-
+black	-	python	uv	-	-
+isort	-	python	uv	-	-
+pyright	-	python	uv	-	-
+pytest	-	python	uv	-	-
+prettier	-	node	npm	-	-
+eslint	-	node	npm	-	-
+gopls	-	go	go	-	-
+golangci-lint	-	go	system	-	-
+cargo-edit	cargo-add	rust	cargo	-	-
+cargo-watch	-	rust	cargo	-	-
+typst	-	cli	cargo	-	cargo uninstall typst-cli
+bash-language-server	-	lsp	npm	-	-
+typescript-language-server	-	lsp	npm	-	-
+lua-language-server	-	lsp	custom	-	rm -rf ~/.local/lib/lua-language-server ~/.local/bin/lua-language-server
+tinymist	-	lsp	system	-	-
+kitty	-	desktop	cask	-	-
+ghostty	-	desktop	cask	-	-
+zed	-	desktop	cask	-	-
+jetbrains-mono-nerd-font	-	desktop	cask	font-jetbrains-mono-nerd-font	-
+appcleaner	-	desktop	cask	-	-
+basictex	-	desktop	cask	-	-
+brave-browser	-	desktop	cask	-	-
+drawio	-	desktop	cask	-	-
+firefox	-	desktop	cask	-	-
+git-credential-manager	-	desktop	cask	-	-
+google-chrome	-	desktop	cask	-	-
+google-drive	-	desktop	cask	-	-
+iina	-	desktop	cask	-	-
+keka	-	desktop	cask	-	-
+maccy	-	desktop	cask	-	-
+netnewswire	-	desktop	cask	-	-
+obsidian	-	desktop	cask	-	-
+ollama-app	-	desktop	cask	ollama	-
+skim	-	desktop	cask	-	-
+stats	-	desktop	cask	-	-
+transmission	-	desktop	cask	-	-
+zoom	-	desktop	cask	-	-

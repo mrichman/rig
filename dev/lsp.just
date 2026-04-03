@@ -32,3 +32,8 @@ lua-language-server:
     mkdir -p ~/.local/bin
     ln -sf ~/.local/lib/lua-language-server/bin/lua-language-server ~/.local/bin/lua-language-server
     rm lls.tar.gz
+
+[group('lsp')]
+tinymist:
+    @echo "installing/upgrading tinymist..."
+    @{{ sys_install }} tinymist

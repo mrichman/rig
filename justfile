@@ -70,7 +70,7 @@ max_retries := env("RIG_RETRIES", "3")
 # ── Group targets ────────────────────────────────────────
 
 # Install all CLI tools
-cli: ripgrep jq bat fzf htop tmux eza zoxide fd fish awscli starship neovim fisher docker kubectl gh terraform helm op claude-code
+cli: ripgrep jq bat fzf htop tmux eza zoxide fd fish awscli starship neovim fisher docker kubectl gh terraform helm op claude-code typst
 
 # Install all Python tools
 python: uv ruff black isort pyright pytest
@@ -85,7 +85,7 @@ go-tools: gopls golangci-lint
 rust-tools: cargo-edit cargo-watch
 
 # Install all LSP servers
-lsp: bash-language-server typescript-language-server lua-language-server
+lsp: bash-language-server typescript-language-server lua-language-server tinymist
 
 # ── Meta targets ─────────────────────────────────────────
 
@@ -350,12 +350,7 @@ outdated:
             for t in "${all[@]}"; do
                 method=$(rig_install_method "$t")
                 if [[ "$method" == "system" || "$method" == "cask" ]]; then
-                    # Map tool name to brew package name
-                    case "$t" in
-                        jetbrains-mono-nerd-font) pkg="font-jetbrains-mono-nerd-font" ;;
-                        op) pkg="1password-cli" ;;
-                        *) pkg="$t" ;;
-                    esac
+                    pkg=$(rig_pkg "$t")
                     match=$(echo "$brew_outdated" | grep -i "^$pkg " || true)
                     if [[ -n "$match" ]]; then
                         if [[ $found_outdated -eq 0 ]]; then
@@ -586,6 +581,21 @@ add:
     fi
     file="{{ justfile_directory() }}/$file"
 
+    # Install method
+    printf "  Install method (system/cask/cargo/go/npm/uv/custom): "
+    read -r method
+
+    # Brew/cask package name (if different from tool name)
+    pkg=""
+    if [[ "$method" == "system" || "$method" == "cask" ]]; then
+        printf "  Brew package name [%s]: " "$tool_name"
+        read -r pkg
+    fi
+
+    # Binary name (if different from tool name)
+    printf "  Binary name [%s]: " "$tool_name"
+    read -r binary
+
     # Install command
     printf "  Install command (e.g. brew install foo, cargo install foo): "
     read -r install_cmd
@@ -594,7 +604,12 @@ add:
         exit 1
     fi
 
-    # Append recipe
+    # Append to tools.tsv registry
+    printf "%s\t%s\t%s\t%s\t%s\t\n" \
+        "$tool_name" "$binary" "$group" "$method" "$pkg" \
+        >> "{{ justfile_directory() }}/lib/tools.tsv"
+
+    # Append recipe to justfile
     {
         echo ""
         echo "[group('$group')]"
@@ -603,7 +618,7 @@ add:
         echo "    @${install_cmd}"
     } >> "$file"
 
-    printf "\n  Added '%s' to %s\n" "$tool_name" "$file"
+    printf "\n  Added '%s' to %s and lib/tools.tsv\n" "$tool_name" "$file"
     printf "  Run 'just %s' to install it.\n\n" "$tool_name"
 
 # ── Diagnostics ──────────────────────────────────────────

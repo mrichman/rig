@@ -1,34 +1,79 @@
 #!/usr/bin/env bash
 # lib/rig.sh — shared helpers for rig
+# All tool metadata lives in lib/tools.tsv — this file only has logic.
 
-# ── Tool list ────────────────────────────────────────────
+# Ensure common tool paths are available in non-interactive shells
+export PATH="$HOME/go/bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
-rig_all_tools() {
-    echo \
-        ripgrep jq bat fzf htop tmux fd eza zoxide fish awscli starship \
-        neovim fisher docker kubectl gh terraform helm op claude-code \
-        uv ruff black isort pyright pytest \
-        prettier eslint \
-        gopls golangci-lint \
-        cargo-edit cargo-watch \
-        bash-language-server typescript-language-server lua-language-server \
-        kitty ghostty zed jetbrains-mono-nerd-font
+# ── Registry loader ──────────────────────────────────────
+
+# Directory where this script lives
+_rig_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parallel arrays populated from tools.tsv (loaded once)
+_rig_tools=()
+_rig_binaries=()
+_rig_groups=()
+_rig_methods=()
+_rig_pkgs=()
+_rig_uninstalls=()
+_rig_loaded=false
+
+_rig_load() {
+    if [[ "$_rig_loaded" == "true" ]]; then return; fi
+
+    while IFS=$'\t' read -r tool binary group method pkg uninstall; do
+        # skip comments and blank lines
+        [[ -z "$tool" || "$tool" == \#* ]] && continue
+        _rig_tools+=("$tool")
+        _rig_binaries+=("$([ "$binary" != "-" ] && echo "$binary" || echo "$tool")")
+        _rig_groups+=("$group")
+        _rig_methods+=("$method")
+        _rig_pkgs+=("$([ "$pkg" != "-" ] && echo "$pkg" || echo "$tool")")
+        _rig_uninstalls+=("$([ "$uninstall" != "-" ] && echo "$uninstall")")
+    done < "$_rig_dir/tools.tsv"
+
+    _rig_loaded=true
 }
 
-# ── Name resolution ──────────────────────────────────────
+# Find index of a tool (sets _idx, returns 1 if not found)
+_rig_index() {
+    _rig_load
+    local i
+    for i in "${!_rig_tools[@]}"; do
+        if [[ "${_rig_tools[$i]}" == "$1" ]]; then
+            _idx=$i
+            return 0
+        fi
+    done
+    return 1
+}
 
-# Map recipe name to the binary/command name
+# ── Public API ───────────────────────────────────────────
+
+rig_all_tools() {
+    _rig_load
+    echo "${_rig_tools[@]}"
+}
+
 rig_resolve() {
-    case "$1" in
-        ripgrep)                echo rg ;;
-        neovim)                 echo nvim ;;
-        awscli)                 echo aws ;;
-        claude-code)            echo claude ;;
-        cargo-edit)             echo cargo-add ;;
-        jetbrains-mono-nerd-font) echo "" ;;
-        fisher)                 echo "" ;;
-        *)                      echo "$1" ;;
-    esac
+    _rig_index "$1" || { echo "$1"; return; }
+    echo "${_rig_binaries[$_idx]}"
+}
+
+rig_group() {
+    _rig_index "$1" || { echo "unknown"; return; }
+    echo "${_rig_groups[$_idx]}"
+}
+
+rig_install_method() {
+    _rig_index "$1" || { echo "unknown"; return; }
+    echo "${_rig_methods[$_idx]}"
+}
+
+rig_pkg() {
+    _rig_index "$1" || { echo "$1"; return; }
+    echo "${_rig_pkgs[$_idx]}"
 }
 
 # ── Installation check ───────────────────────────────────
@@ -37,18 +82,29 @@ rig_is_installed() {
     local tool="$1"
     case "$tool" in
         fisher)
-            fish -c "type fisher" &>/dev/null ;;
+            fish -c "type fisher" &>/dev/null
+            return $? ;;
         jetbrains-mono-nerd-font)
-            if [[ "$(uname -s)" == "Darwin" ]]; then
-                brew list --cask font-jetbrains-mono-nerd-font &>/dev/null 2>&1
-            else
+            if [[ "$(uname -s)" != "Darwin" ]]; then
                 fc-list 2>/dev/null | grep -qi "JetBrainsMono.*Nerd"
+                return $?
             fi ;;
-        *)
-            local cmd
-            cmd=$(rig_resolve "$tool")
-            [[ -n "$cmd" ]] && command -v "$cmd" &>/dev/null ;;
     esac
+
+    # Check PATH first
+    local cmd
+    cmd=$(rig_resolve "$tool")
+    if [[ -n "$cmd" ]] && command -v "$cmd" &>/dev/null; then
+        return 0
+    fi
+
+    # Cask apps may not have a CLI in PATH — check brew cask
+    if [[ "$(uname -s)" == "Darwin" && "$(rig_install_method "$tool")" == "cask" ]]; then
+        brew list --cask "$(rig_pkg "$tool")" &>/dev/null 2>&1
+        return $?
+    fi
+
+    return 1
 }
 
 # ── Version detection ────────────────────────────────────
@@ -69,7 +125,7 @@ rig_version() {
             fish -c "fisher --version 2>/dev/null" 2>/dev/null || echo "unknown" ;;
         jetbrains-mono-nerd-font)
             if [[ "$(uname -s)" == "Darwin" ]]; then
-                brew list --cask --versions font-jetbrains-mono-nerd-font 2>/dev/null \
+                brew list --cask --versions "$(rig_pkg "$tool")" 2>/dev/null \
                     | awk '{print $2}' || echo "installed"
             else
                 echo "installed"
@@ -77,11 +133,10 @@ rig_version() {
         docker)
             docker --version 2>/dev/null | sed 's/Docker version //' | cut -d, -f1 ;;
         *)
-            if [[ -z "$cmd" ]]; then
+            if [[ -z "$cmd" || "$cmd" == "$tool" ]] && ! command -v "$cmd" &>/dev/null; then
                 echo "installed"
                 return 0
             fi
-            # Try common version flags in order
             local ver
             ver=$("$cmd" --version 2>/dev/null | head -1) \
                 || ver=$("$cmd" -V 2>/dev/null | head -1) \
@@ -112,41 +167,29 @@ rig_which() {
     esac
 }
 
-# ── Install method ───────────────────────────────────────
-
-rig_install_method() {
-    case "$1" in
-        fd|eza|zoxide|cargo-edit|cargo-watch)
-            echo "cargo" ;;
-        gopls)
-            echo "go" ;;
-        ruff|black|isort|pyright|pytest)
-            echo "uv" ;;
-        prettier|eslint|bash-language-server|typescript-language-server)
-            echo "npm" ;;
-        uv|starship|fisher|claude-code|lua-language-server)
-            echo "custom" ;;
-        docker|kitty|ghostty|zed|op|jetbrains-mono-nerd-font)
-            echo "cask" ;;
-        golangci-lint|ripgrep|jq|bat|fzf|htop|tmux|fish|awscli|neovim|kubectl|gh|terraform|helm)
-            echo "system" ;;
-        *)
-            echo "unknown" ;;
-    esac
-}
-
 # ── Uninstall command ────────────────────────────────────
 
 rig_uninstall_cmd() {
     local tool="$1"
     local host_os="$2"
 
-    case "$(rig_install_method "$tool")" in
+    # Check for a tool-specific uninstall command in the registry
+    _rig_index "$tool" || { echo "# unknown tool: $tool"; return; }
+    local custom_uninstall="${_rig_uninstalls[$_idx]}"
+    if [[ -n "$custom_uninstall" ]]; then
+        echo "$custom_uninstall"
+        return
+    fi
+
+    # Generate uninstall command from method
+    local method
+    method=$(rig_install_method "$tool")
+    local pkg
+    pkg=$(rig_pkg "$tool")
+
+    case "$method" in
         cargo)
-            case "$tool" in
-                fd) echo "cargo uninstall fd-find" ;;
-                *)  echo "cargo uninstall $tool" ;;
-            esac ;;
+            echo "cargo uninstall $pkg" ;;
         go)
             local cmd
             cmd=$(rig_resolve "$tool")
@@ -161,54 +204,18 @@ rig_uninstall_cmd() {
             fi ;;
         cask)
             if [[ "$host_os" == "macos" ]]; then
-                case "$tool" in
-                    jetbrains-mono-nerd-font) echo "brew uninstall --cask font-jetbrains-mono-nerd-font" ;;
-                    op)                       echo "brew uninstall --cask 1password-cli" ;;
-                    *)                        echo "brew uninstall --cask $tool" ;;
-                esac
+                echo "brew uninstall --cask $pkg"
             else
                 echo "# use your system package manager to remove $tool"
             fi ;;
         system)
             if [[ "$host_os" == "macos" ]]; then
-                echo "brew uninstall $tool"
+                echo "brew uninstall $pkg"
             else
                 echo "# use your system package manager to remove $tool"
             fi ;;
-        custom)
-            case "$tool" in
-                uv)                   echo "rm -f ~/.local/bin/uv ~/.local/bin/uvx" ;;
-                starship)             echo "rm -f \"$(command -v starship 2>/dev/null || echo /usr/local/bin/starship)\"" ;;
-                fisher)               echo "fish -c 'fisher remove jorgebucaran/fisher'" ;;
-                claude-code)          echo "npm uninstall -g @anthropic-ai/claude-code" ;;
-                lua-language-server)  echo "rm -rf ~/.local/lib/lua-language-server ~/.local/bin/lua-language-server" ;;
-                *)                    echo "# manual uninstall required for $tool" ;;
-            esac ;;
         *)
-            echo "# unknown install method for $tool" ;;
-    esac
-}
-
-# ── Tool group ───────────────────────────────────────────
-
-rig_group() {
-    case "$1" in
-        ripgrep|jq|bat|fzf|htop|tmux|fd|eza|zoxide|fish|awscli|starship|neovim|fisher|docker|kubectl|gh|terraform|helm|op|claude-code)
-            echo "cli" ;;
-        uv|ruff|black|isort|pyright|pytest)
-            echo "python" ;;
-        prettier|eslint)
-            echo "node" ;;
-        gopls|golangci-lint)
-            echo "go" ;;
-        cargo-edit|cargo-watch)
-            echo "rust" ;;
-        bash-language-server|typescript-language-server|lua-language-server)
-            echo "lsp" ;;
-        kitty|ghostty|zed|jetbrains-mono-nerd-font)
-            echo "desktop" ;;
-        *)
-            echo "unknown" ;;
+            echo "# manual uninstall required for $tool" ;;
     esac
 }
 

@@ -132,3 +132,8 @@ op:
 claude-code:
     @echo "installing/upgrading claude-code..."
     @curl -fsSL https://claude.ai/install.sh | bash
+
+[group('cli')]
+typst:
+    @echo "installing/upgrading typst..."
+    @cargo install --locked typst-cli
