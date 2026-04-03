@@ -16,13 +16,14 @@ _rig_binaries=()
 _rig_groups=()
 _rig_methods=()
 _rig_pkgs=()
+_rig_depends=()
 _rig_uninstalls=()
 _rig_loaded=false
 
 _rig_load() {
     if [[ "$_rig_loaded" == "true" ]]; then return; fi
 
-    while IFS=$'\t' read -r tool binary group method pkg uninstall; do
+    while IFS=$'\t' read -r tool binary group method pkg depends uninstall; do
         # skip comments and blank lines
         [[ -z "$tool" || "$tool" == \#* ]] && continue
         _rig_tools+=("$tool")
@@ -30,6 +31,7 @@ _rig_load() {
         _rig_groups+=("$group")
         _rig_methods+=("$method")
         _rig_pkgs+=("$([ "$pkg" != "-" ] && echo "$pkg" || echo "$tool")")
+        _rig_depends+=("$([ "$depends" != "-" ] && echo "$depends")")
         _rig_uninstalls+=("$([ "$uninstall" != "-" ] && echo "$uninstall")")
     done < "$_rig_dir/tools.tsv"
 
@@ -74,6 +76,83 @@ rig_install_method() {
 rig_pkg() {
     _rig_index "$1" || { echo "$1"; return; }
     echo "${_rig_pkgs[$_idx]}"
+}
+
+rig_depends() {
+    _rig_index "$1" || return
+    echo "${_rig_depends[$_idx]}"
+}
+
+# ── Dependency-sorted tool list ──────────────────────────
+
+# Topological sort: returns all tools ordered so dependencies come first.
+# Uses Kahn's algorithm. Bash 3.2 compatible (no associative arrays).
+rig_sorted_tools() {
+    _rig_load
+    local count=${#_rig_tools[@]}
+
+    # Build a "has been emitted" lookup string (space-separated)
+    local emitted=" "
+    local sorted=()
+    local remaining=()
+
+    # Start with all tool indices
+    local i
+    for (( i = 0; i < count; i++ )); do
+        remaining+=("$i")
+    done
+
+    while [[ ${#remaining[@]} -gt 0 ]]; do
+        # Use a string to collect next-round indices (bash 3.2 safe)
+        local next_remaining_str=""
+        local progress=false
+
+        for i in "${remaining[@]}"; do
+            local deps="${_rig_depends[$i]}"
+            if [[ -z "$deps" ]]; then
+                # No dependencies — emit immediately
+                sorted+=("${_rig_tools[$i]}")
+                emitted="$emitted${_rig_tools[$i]} "
+                progress=true
+            else
+                # Check if all deps have been emitted
+                local all_met=true
+                local saved_ifs="$IFS"
+                IFS=','
+                for dep in $deps; do
+                    case "$emitted" in
+                        *" $dep "*) ;;  # found
+                        *) all_met=false; break ;;
+                    esac
+                done
+                IFS="$saved_ifs"
+
+                if [[ "$all_met" == "true" ]]; then
+                    sorted+=("${_rig_tools[$i]}")
+                    emitted="$emitted${_rig_tools[$i]} "
+                    progress=true
+                else
+                    next_remaining_str="$next_remaining_str $i"
+                fi
+            fi
+        done
+
+        if [[ "$progress" != "true" ]]; then
+            # Unresolvable deps (cycle or missing) — emit remainder as-is
+            for i in $next_remaining_str; do
+                sorted+=("${_rig_tools[$i]}")
+            done
+            break
+        fi
+
+        # Rebuild remaining array from string
+        remaining=()
+        for i in $next_remaining_str; do
+            remaining+=("$i")
+        done
+    done
+
+    echo "${sorted[@]}"
 }
 
 # ── Installation check ───────────────────────────────────

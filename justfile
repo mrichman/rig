@@ -99,7 +99,7 @@ all:
     set -uo pipefail
     source "{{ rig_helpers }}"
 
-    tools=($(rig_all_tools))
+    tools=($(rig_sorted_tools))
     force="{{ force }}"
     max_retries="{{ max_retries }}"
 
@@ -199,7 +199,7 @@ update:
     set -uo pipefail
     source "{{ rig_helpers }}"
 
-    tools=($(rig_all_tools))
+    tools=($(rig_sorted_tools))
     max_retries="{{ max_retries }}"
 
     declare -a results=()
@@ -317,6 +317,11 @@ info tool:
     printf "  %-14s %s\n" "Tool:"     "$tool"
     printf "  %-14s %s\n" "Group:"    "$(rig_group "$tool")"
     printf "  %-14s %s\n" "Method:"   "$(rig_install_method "$tool")"
+
+    deps=$(rig_depends "$tool")
+    if [[ -n "$deps" ]]; then
+        printf "  %-14s %s\n" "Depends:" "$deps"
+    fi
 
     if rig_is_installed "$tool"; then
         printf "  %-14s \033[32m%s\033[0m\n" "Installed:" "yes"
@@ -470,10 +475,14 @@ snapshot:
     snapshot=~/.rig/snapshot.txt
 
     tools=($(rig_all_tools))
+    total=${#tools[@]}
     count=0
 
     : > "$snapshot"
-    for tool in "${tools[@]}"; do
+    for i in "${!tools[@]}"; do
+        tool="${tools[$i]}"
+        n=$((i + 1))
+        printf "\r  [%d/%d] checking %-30s" "$n" "$total" "$tool"
         if rig_is_installed "$tool"; then
             version=$(rig_version "$tool")
             echo "${tool}|${version}" >> "$snapshot"
@@ -481,6 +490,7 @@ snapshot:
         fi
     done
 
+    printf "\r  %-50s\n" ""
     printf "  Saved %d installed tools to %s\n" "$count" "$snapshot"
 
 # Reinstall tools from ~/.rig/snapshot.txt
@@ -497,14 +507,26 @@ restore:
     fi
 
     declare -a results=()
-    declare -a tools=()
+    declare -a snapshot_tools=()
     errors=0
     ok=0
 
     while IFS='|' read -r tool version; do
         [[ -z "$tool" || "$tool" == \#* ]] && continue
-        tools+=("$tool")
+        snapshot_tools+=("$tool")
     done < "$snapshot"
+
+    # Reorder snapshot tools by dependency order
+    sorted=($(rig_sorted_tools))
+    declare -a tools=()
+    for s in "${sorted[@]}"; do
+        for t in "${snapshot_tools[@]}"; do
+            if [[ "$s" == "$t" ]]; then
+                tools+=("$s")
+                break
+            fi
+        done
+    done
 
     total=${#tools[@]}
     printf "  Restoring %d tools from snapshot...\n\n" "$total"
