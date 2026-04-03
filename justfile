@@ -76,8 +76,81 @@ lsp: bash-language-server typescript-language-server lua-language-server
 # Install all dev tools
 dev: cli python node go-tools rust-tools lsp
 
-# Install everything (dev + desktop)
-all: dev desktop
+# Install everything (dev + desktop) with summary report
+[script('bash')]
+all:
+    set -uo pipefail
+
+    tools=(
+        # cli
+        ripgrep jq bat fzf htop tmux fd eza zoxide fish awscli starship
+        neovim fisher docker kubectl gh terraform helm op claude-code
+        # python
+        uv ruff black isort pyright pytest
+        # node
+        prettier eslint
+        # go
+        gopls golangci-lint
+        # rust
+        cargo-edit cargo-watch
+        # lsp
+        bash-language-server typescript-language-server lua-language-server
+        # desktop
+        kitty ghostty zed jetbrains-mono-nerd-font
+    )
+
+    declare -a results=()
+    declare -a messages=()
+    errors=0
+    warnings=0
+    ok=0
+
+    total=${#tools[@]}
+
+    for i in "${!tools[@]}"; do
+        tool="${tools[$i]}"
+        n=$((i + 1))
+        printf "  [%d/%d] %-30s " "$n" "$total" "$tool"
+        output=$(just "$tool" 2>&1) && rc=0 || rc=$?
+        if [[ $rc -eq 0 ]]; then
+            results+=("ok")
+            messages+=("")
+            ((ok++))
+            printf "\033[32mok\033[0m\n"
+        else
+            results+=("error")
+            msg=$(echo "$output" | grep -v '^$' | tail -1)
+            messages+=("$msg")
+            ((errors++))
+            printf "\033[31mfail\033[0m\n"
+        fi
+    done
+
+    # ── Summary ──────────────────────────────────────────
+    printf "\n"
+    printf "  ══════════════════════════════════════════════════════════════════\n"
+    printf "  rig install complete\n"
+    printf "  ══════════════════════════════════════════════════════════════════\n\n"
+
+    printf "  %-30s %-8s %s\n" "TOOL" "STATUS" "MESSAGE"
+    printf "  %-30s %-8s %s\n" "----" "------" "-------"
+
+    for i in "${!tools[@]}"; do
+        tool="${tools[$i]}"
+        status="${results[$i]}"
+        msg="${messages[$i]}"
+        if [[ "$status" == "ok" ]]; then
+            printf "  %-30s \033[32m%-8s\033[0m\n" "$tool" "OK"
+        else
+            printf "  %-30s \033[31m%-8s\033[0m %s\n" "$tool" "FAIL" "$msg"
+        fi
+    done
+
+    printf "\n  %s ok, %s failed\n\n" "$ok" "$errors"
+
+    if [[ "$errors" -gt 0 ]]; then
+        exit 1
+    fi
 
 # ── Diagnostics ──────────────────────────────────────────
 

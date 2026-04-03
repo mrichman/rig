@@ -10,7 +10,6 @@ typescript-language-server:
     @echo "installing/upgrading typescript-language-server..."
     @{{ npm_install }} typescript-language-server
 
-# Custom install: not in any package manager
 [group('lsp')]
 [script('bash')]
 lua-language-server:
@@ -23,9 +22,11 @@ lua-language-server:
         linux-x86_64)  platform="linux-x64"    ;;
         *) echo "unsupported platform: {{ host_os }}-{{ host_arch }}"; exit 1 ;;
     esac
+    version=$(curl -s "https://api.github.com/repos/LuaLS/lua-language-server/releases/latest" \
+        | grep '"tag_name"' | sed 's/.*"tag_name": *"\(.*\)".*/\1/')
     cd /tmp
-    curl -L -o lls.tar.gz \
-        "https://github.com/LuaLS/lua-language-server/releases/latest/download/lua-language-server-${platform}.tar.gz"
+    curl -fL -o lls.tar.gz \
+        "https://github.com/LuaLS/lua-language-server/releases/download/${version}/lua-language-server-${version}-${platform}.tar.gz"
     mkdir -p ~/.local/lib/lua-language-server
     tar xzf lls.tar.gz -C ~/.local/lib/lua-language-server
     mkdir -p ~/.local/bin

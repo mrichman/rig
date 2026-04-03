@@ -9,4 +9,4 @@ gopls:
 [group('go')]
 golangci-lint:
     @echo "installing/upgrading golangci-lint..."
-    @go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    @{{ sys_install }} golangci-lint
