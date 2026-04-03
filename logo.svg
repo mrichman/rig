@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 80" width="220" height="80">
+  <!-- Combination wrench at 45 degrees -->
+  <g transform="translate(35,40) rotate(-45)">
+    <!-- Open end (top) — two prongs with a gap -->
+    <path d="M-7,-32 L-7,-20 L-4,-20 L-4,-32 Q-5.5,-38 -7,-32 Z" fill="#60a5fa"/>
+    <path d="M4,-32 L4,-20 L7,-20 L7,-32 Q5.5,-38 4,-32 Z" fill="#60a5fa"/>
+    <!-- Shaft -->
+    <rect x="-4" y="-20" width="8" height="30" fill="#60a5fa"/>
+    <!-- Box end (bottom) — ring -->
+    <circle cx="0" cy="14" r="8" fill="#60a5fa"/>
+    <circle cx="0" cy="14" r="4" fill="#0f172a"/>
+  </g>
+
+  <!-- Bolt -->
+  <polygon transform="translate(56,22)" points="0,0 -5,10 -1,10 -4,18 5,7 1,7 4,0" fill="#fbbf24"/>
+
+  <!-- Wordmark -->
+  <text x="80" y="52" font-family="monospace" font-size="36" font-weight="bold" letter-spacing="4" fill="#e2e8f0">rig</text>
+</svg>

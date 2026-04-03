@@ -1,0 +1,12 @@
+# Claude Code
+.claude/
+
+# macOS
+.DS_Store
+
+# Editors
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
