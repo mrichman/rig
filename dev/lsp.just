@@ -34,6 +34,22 @@ lua-language-server:
     rm lls.tar.gz
 
 [group('lsp')]
+[script('bash')]
 tinymist:
-    @echo "installing/upgrading tinymist..."
-    @cargo install --locked tinymist
+    set -euo pipefail
+    source "{{ rig_helpers }}"
+    echo "installing/upgrading tinymist..."
+    if [[ "{{ host_os }}" == "macos" ]]; then
+        brew install tinymist
+        exit 0
+    fi
+    case "{{ host_arch }}" in
+        x86_64)  asset=tinymist-linux-x64 ;;
+        aarch64) asset=tinymist-linux-arm64 ;;
+        *) echo "  skipping tinymist: unsupported arch {{ host_arch }}"; exit 0 ;;
+    esac
+    url=$(rig_gh_latest_asset Myriad-Dreamin/tinymist "/${asset}\$")
+    [[ -z "$url" ]] && { echo "  could not find tinymist asset $asset"; exit 1; }
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSLo "$HOME/.local/bin/tinymist" "$url"
+    chmod +x "$HOME/.local/bin/tinymist"

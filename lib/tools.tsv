@@ -42,7 +42,7 @@ typst	-	cli	cargo	-	-	cargo uninstall typst-cli	-
 bash-language-server	-	lsp	npm	-	nodejs	-	-
 typescript-language-server	-	lsp	npm	-	nodejs	-	-
 lua-language-server	-	lsp	custom	-	-	rm -rf ~/.local/lib/lua-language-server ~/.local/bin/lua-language-server	-
-tinymist	-	lsp	cargo	-	-	-	-
+tinymist	-	lsp	custom	-	-	rm -f ~/.local/bin/tinymist	-
 kitty	-	desktop	cask	-	-	-	-
 ghostty	-	desktop	cask	-	-	-	macos
 zed	-	desktop	cask	-	-	-	-
