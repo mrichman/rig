@@ -2,7 +2,7 @@
 
 # Install all desktop apps
 [group('desktop')]
-desktop: kitty ghostty zed jetbrains-mono-nerd-font appcleaner basictex brave-browser drawio firefox git-credential-manager google-chrome google-drive iina keka maccy netnewswire obsidian ollama-app skim stats transmission zoom
+desktop: kitty ghostty zed jetbrains-mono-nerd-font appcleaner basictex brave-browser drawio firefox git-credential-manager google-chrome google-drive iina keka maccy netnewswire obsidian ollama-app skim stats transmission vscodium zoom
 
 [group('desktop')]
 [script('bash')]
@@ -274,6 +274,36 @@ transmission:
     else
         {{ sys_install }} transmission
     fi
+
+[group('desktop')]
+[script('bash')]
+vscodium:
+    set -euo pipefail
+    source "{{ rig_helpers }}"
+    echo "installing/upgrading vscodium..."
+    if [[ "{{ host_os }}" == "macos" ]]; then
+        brew install --cask vscodium
+        exit 0
+    fi
+    case "{{ host_arch }}" in
+        x86_64)  arch_deb=amd64; arch_rpm=x86_64 ;;
+        aarch64) arch_deb=arm64; arch_rpm=aarch64 ;;
+        *) echo "  skipping vscodium: unsupported arch {{ host_arch }}"; exit 0 ;;
+    esac
+    family=$(rig_pkg_family)
+    case "$family" in
+        deb)
+            url=$(rig_gh_latest_asset VSCodium/vscodium "codium_[0-9][^\"]*_${arch_deb}\\.deb$")
+            [[ -z "$url" ]] && { echo "  could not find vscodium .deb asset"; exit 1; }
+            rig_install_deb "$url" ;;
+        rpm)
+            url=$(rig_gh_latest_asset VSCodium/vscodium "codium-[0-9][^\"]*\\.${arch_rpm}\\.rpm$")
+            [[ -z "$url" ]] && { echo "  could not find vscodium .rpm asset"; exit 1; }
+            rig_install_rpm "$url" ;;
+        *)
+            echo "  skipping vscodium: no deb/rpm package for this distro"
+            exit 0 ;;
+    esac
 
 [group('desktop')]
 [script('bash')]
