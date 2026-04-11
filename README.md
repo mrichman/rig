@@ -61,7 +61,14 @@ justfile
     └── apps.just      # desktop applications
 ```
 
-`lib/tools.tsv` is the registry that maps every tool to its binary name, group, install method, and brew package name. The helper functions in `lib/rig.sh` read from this file — no metadata is hardcoded in multiple places.
+`lib/tools.tsv` is the registry that maps every tool to its binary name, group, install method, brew package name, and supported platforms. The helper functions in `lib/rig.sh` read from this file — no metadata is hardcoded in multiple places.
+
+Tools with a `platforms` field of `macos` (e.g. appcleaner, iina, skim, stats, maccy) are automatically skipped by `just all`, `just doctor`, and friends when run on Linux. Cross-platform apps branch on `host_os` and install via the appropriate mechanism on each platform:
+
+- **System packages / upstream scripts:** firefox, transmission, brave-browser, ollama-app, zed, kitty, ghostty, jetbrains-mono-nerd-font, obsidian (flatpak)
+- **Cross-distro .deb/.rpm:** google-chrome, zoom, drawio (via GitHub Releases API), git-credential-manager (.deb only)
+
+The `lib/rig.sh` helpers `rig_pkg_family`, `rig_install_deb`, `rig_install_rpm`, and `rig_gh_latest_asset` encapsulate the deb/rpm detection and download logic so each recipe stays short.
 
 The justfile detects your OS and distro at startup, then sets `sys_install` to the right package manager:
 
@@ -114,6 +121,7 @@ mytool	-	cli	system	-	-
 | `method` | `system`, `cask`, `cargo`, `go`, `npm`, `uv`, or `custom` | — |
 | `pkg` | Brew package name (when it differs from tool name) | same as tool |
 | `uninstall_cmd` | Custom uninstall command (when the default isn't enough) | auto-generated from method |
+| `platforms` | Comma-separated list of supported platforms (`macos`, `linux`) | all platforms |
 
 ### 2. Add a recipe to the appropriate `.just` file
 

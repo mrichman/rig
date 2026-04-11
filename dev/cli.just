@@ -91,7 +91,12 @@ kubectl:
     if [[ "{{ host_os }}" == "macos" ]]; then
         brew install kubectl
     else
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/{{ host_arch }}/kubectl"
+        case "{{ host_arch }}" in
+            x86_64)  karch=amd64 ;;
+            aarch64) karch=arm64 ;;
+            *)       karch="{{ host_arch }}" ;;
+        esac
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${karch}/kubectl"
         sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
         rm kubectl
     fi

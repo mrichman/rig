@@ -483,6 +483,7 @@ snapshot:
         tool="${tools[$i]}"
         n=$((i + 1))
         printf "\r  [%d/%d] checking %-30s" "$n" "$total" "$tool"
+        rig_is_supported "$tool" || continue
         if rig_is_installed "$tool"; then
             version=$(rig_version "$tool")
             echo "${tool}|${version}" >> "$snapshot"
@@ -654,11 +655,16 @@ doctor:
     tools=($(rig_all_tools))
     missing=0
     found=0
+    unsupported=0
 
     printf "\n  %-30s %s\n" "TOOL" "STATUS"
     printf "  %-30s %s\n" "----" "------"
 
     for tool in "${tools[@]}"; do
+        if ! rig_is_supported "$tool"; then
+            ((unsupported++))
+            continue
+        fi
         if rig_is_installed "$tool"; then
             printf "  %-30s \033[32m✓\033[0m\n" "$tool"
             ((found++))
@@ -668,7 +674,11 @@ doctor:
         fi
     done
 
-    printf "\n  %s installed, %s missing\n\n" "$found" "$missing"
+    if [[ "$unsupported" -gt 0 ]]; then
+        printf "\n  %s installed, %s missing, %s skipped (unsupported on this platform)\n\n" "$found" "$missing" "$unsupported"
+    else
+        printf "\n  %s installed, %s missing\n\n" "$found" "$missing"
+    fi
 
     if [[ "$missing" -gt 0 ]]; then
         exit 1

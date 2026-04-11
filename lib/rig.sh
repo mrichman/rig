@@ -18,12 +18,13 @@ _rig_methods=()
 _rig_pkgs=()
 _rig_depends=()
 _rig_uninstalls=()
+_rig_platforms=()
 _rig_loaded=false
 
 _rig_load() {
     if [[ "$_rig_loaded" == "true" ]]; then return; fi
 
-    while IFS=$'\t' read -r tool binary group method pkg depends uninstall; do
+    while IFS=$'\t' read -r tool binary group method pkg depends uninstall platforms; do
         # skip comments and blank lines
         [[ -z "$tool" || "$tool" == \#* ]] && continue
         _rig_tools+=("$tool")
@@ -33,9 +34,19 @@ _rig_load() {
         _rig_pkgs+=("$([ "$pkg" != "-" ] && echo "$pkg" || echo "$tool")")
         _rig_depends+=("$([ "$depends" != "-" ] && echo "$depends")")
         _rig_uninstalls+=("$([ "$uninstall" != "-" ] && echo "$uninstall")")
+        _rig_platforms+=("$([ -n "${platforms:-}" ] && [ "$platforms" != "-" ] && echo "$platforms")")
     done < "$_rig_dir/tools.tsv"
 
     _rig_loaded=true
+}
+
+# Current platform string: "macos" or "linux"
+_rig_current_platform() {
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "macos"
+    else
+        echo "linux"
+    fi
 }
 
 # Find index of a tool (sets _idx, returns 1 if not found)
@@ -83,10 +94,41 @@ rig_depends() {
     echo "${_rig_depends[$_idx]}"
 }
 
+rig_platforms_of() {
+    _rig_index "$1" || { echo ""; return; }
+    echo "${_rig_platforms[$_idx]}"
+}
+
+# Return 0 if the tool is supported on the current platform.
+# Empty platforms field = supported everywhere.
+rig_is_supported() {
+    local plats
+    plats=$(rig_platforms_of "$1")
+    [[ -z "$plats" ]] && return 0
+    local current
+    current=$(_rig_current_platform)
+    case ",$plats," in
+        *",$current,"*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Exit 0 with a skip message if the tool is macOS-only and we're not on macOS.
+# Use inside a [script('bash')] recipe to self-skip cleanly.
+rig_skip_if_unsupported() {
+    local tool="${1:-this tool}"
+    if ! rig_is_supported "$tool"; then
+        local plats
+        plats=$(rig_platforms_of "$tool")
+        echo "  skipping ${tool}: only supported on ${plats}"
+        exit 0
+    fi
+}
+
 # ── Dependency-sorted tool list ──────────────────────────
 
-# Topological sort: returns all tools ordered so dependencies come first.
-# Uses Kahn's algorithm. Bash 3.2 compatible (no associative arrays).
+# Topological sort: returns all tools supported on the current platform,
+# ordered so dependencies come first. Uses Kahn's algorithm. Bash 3.2 compatible.
 rig_sorted_tools() {
     _rig_load
     local count=${#_rig_tools[@]}
@@ -96,9 +138,10 @@ rig_sorted_tools() {
     local sorted=()
     local remaining=()
 
-    # Start with all tool indices
+    # Start with all tool indices that are supported on the current platform
     local i
     for (( i = 0; i < count; i++ )); do
+        rig_is_supported "${_rig_tools[$i]}" || continue
         remaining+=("$i")
     done
 
@@ -339,6 +382,71 @@ rig_retry() {
 
     echo "$output"
     return $rc
+}
+
+# ── Linux package family detection + install helpers ────
+
+# Detect the native package format: "deb", "rpm", or "other".
+rig_pkg_family() {
+    if command -v dpkg &>/dev/null && command -v apt-get &>/dev/null; then
+        echo "deb"
+    elif command -v rpm &>/dev/null \
+        && { command -v dnf &>/dev/null || command -v yum &>/dev/null || command -v zypper &>/dev/null; }; then
+        echo "rpm"
+    else
+        echo "other"
+    fi
+}
+
+# Download (or copy) a .deb and install it via apt-get so deps resolve.
+rig_install_deb() {
+    local src="$1"
+    local tmp file
+    tmp="$(mktemp -d)"
+    file="$tmp/pkg.deb"
+    if [[ "$src" == http* ]]; then
+        curl -fsSL -o "$file" "$src"
+    else
+        cp "$src" "$file"
+    fi
+    sudo apt-get install -y "$file"
+    rm -rf "$tmp"
+}
+
+# Download (or copy) an .rpm and install it with whichever rpm frontend is present.
+rig_install_rpm() {
+    local src="$1"
+    local tmp file
+    tmp="$(mktemp -d)"
+    file="$tmp/pkg.rpm"
+    if [[ "$src" == http* ]]; then
+        curl -fsSL -o "$file" "$src"
+    else
+        cp "$src" "$file"
+    fi
+    if command -v dnf &>/dev/null; then
+        sudo dnf install -y "$file"
+    elif command -v zypper &>/dev/null; then
+        sudo zypper install -y --allow-unsigned-rpm "$file"
+    elif command -v yum &>/dev/null; then
+        sudo yum install -y "$file"
+    else
+        rm -rf "$tmp"
+        return 1
+    fi
+    rm -rf "$tmp"
+}
+
+# Resolve a GitHub "latest release" asset URL matching a filename pattern.
+# Usage: rig_gh_latest_asset <owner/repo> <pattern>
+# Pattern is a POSIX-ERE fragment matched against the filename.
+rig_gh_latest_asset() {
+    local repo="$1" pattern="$2"
+    curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" \
+        | grep -oE '"browser_download_url":[[:space:]]*"[^"]+"' \
+        | sed -E 's/.*"(https[^"]+)".*/\1/' \
+        | grep -E "$pattern" \
+        | head -1
 }
 
 # ── Desktop notifications ────────────────────────────────
