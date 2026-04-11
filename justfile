@@ -2,6 +2,8 @@
 # One command to install anything. `just --list` to browse.
 # `just --choose` for an interactive fzf installer.
 
+set unstable
+
 # Show help when invoked with no arguments
 [private]
 default:
