@@ -53,7 +53,7 @@ brave-browser	-	desktop	cask	-	-	-	-
 drawio	-	desktop	cask	-	-	-	-
 firefox	-	desktop	cask	-	-	-	-
 git-credential-manager	-	desktop	cask	-	-	-	-
-google-chrome	-	desktop	cask	-	-	-	-
+google-chrome	-	desktop	cask	-	-	-	macos,linux-x86_64
 google-drive	-	desktop	cask	-	-	-	macos
 iina	-	desktop	cask	-	-	-	macos
 keka	-	desktop	cask	-	-	-	macos
@@ -65,4 +65,4 @@ skim	-	desktop	cask	-	-	-	macos
 stats	-	desktop	cask	-	-	-	macos
 transmission	-	desktop	cask	-	-	-	-
 vscodium	codium	desktop	cask	-	-	-	-
-zoom	-	desktop	cask	-	-	-	-
+zoom	-	desktop	cask	-	-	-	macos,linux-x86_64

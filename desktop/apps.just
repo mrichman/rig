@@ -151,13 +151,10 @@ git-credential-manager:
 google-chrome:
     set -euo pipefail
     source "{{ rig_helpers }}"
+    rig_skip_if_unsupported google-chrome
     echo "installing/upgrading google-chrome..."
     if [[ "{{ host_os }}" == "macos" ]]; then
         brew install --cask google-chrome
-        exit 0
-    fi
-    if [[ "{{ host_arch }}" != "x86_64" ]]; then
-        echo "  skipping google-chrome: Google only ships x86_64 binaries for Linux"
         exit 0
     fi
     family=$(rig_pkg_family)
@@ -310,13 +307,10 @@ vscodium:
 zoom:
     set -euo pipefail
     source "{{ rig_helpers }}"
+    rig_skip_if_unsupported zoom
     echo "installing/upgrading zoom..."
     if [[ "{{ host_os }}" == "macos" ]]; then
         brew install --cask zoom
-        exit 0
-    fi
-    if [[ "{{ host_arch }}" != "x86_64" ]]; then
-        echo "  skipping zoom: only x86_64 Linux builds are published"
         exit 0
     fi
     family=$(rig_pkg_family)

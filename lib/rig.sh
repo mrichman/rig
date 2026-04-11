@@ -49,6 +49,11 @@ _rig_current_platform() {
     fi
 }
 
+# Current arch string: "x86_64" or "aarch64"
+_rig_current_arch() {
+    uname -m
+}
+
 # Find index of a tool (sets _idx, returns 1 if not found)
 _rig_index() {
     _rig_load
@@ -99,16 +104,21 @@ rig_platforms_of() {
     echo "${_rig_platforms[$_idx]}"
 }
 
-# Return 0 if the tool is supported on the current platform.
+# Return 0 if the tool is supported on the current platform/arch.
 # Empty platforms field = supported everywhere.
+# Supports simple OS tags ("macos", "linux") and arch-qualified tags
+# ("linux-x86_64", "linux-aarch64") in the same comma-separated list.
 rig_is_supported() {
     local plats
     plats=$(rig_platforms_of "$1")
     [[ -z "$plats" ]] && return 0
-    local current
+    local current arch qualified
     current=$(_rig_current_platform)
+    arch=$(_rig_current_arch)
+    qualified="${current}-${arch}"
     case ",$plats," in
-        *",$current,"*) return 0 ;;
+        *",$current,"*)    return 0 ;;
+        *",$qualified,"*)  return 0 ;;
         *) return 1 ;;
     esac
 }
