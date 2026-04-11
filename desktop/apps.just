@@ -19,12 +19,10 @@ kitty:
 [script('bash')]
 ghostty:
     set -euo pipefail
+    source "{{ rig_helpers }}"
+    rig_skip_if_unsupported ghostty
     echo "installing/upgrading ghostty..."
-    if [[ "{{ host_os }}" == "macos" ]]; then
-        brew install --cask ghostty
-    else
-        {{ sys_install }} ghostty
-    fi
+    brew install --cask ghostty
 
 [group('desktop')]
 [script('bash')]
@@ -218,14 +216,23 @@ netnewswire:
 [script('bash')]
 obsidian:
     set -euo pipefail
+    source "{{ rig_helpers }}"
     echo "installing/upgrading obsidian..."
     if [[ "{{ host_os }}" == "macos" ]]; then
         brew install --cask obsidian
+        exit 0
+    fi
+    family=$(rig_pkg_family)
+    if [[ "$family" == "deb" && "{{ host_arch }}" == "x86_64" ]]; then
+        url=$(rig_gh_latest_asset obsidianmd/obsidian-releases "obsidian_[0-9][^\"]*_amd64\\.deb$")
+        [[ -z "$url" ]] && { echo "  could not find obsidian .deb asset"; exit 1; }
+        rig_install_deb "$url"
     elif command -v flatpak &>/dev/null; then
-        flatpak install -y flathub md.obsidian.Obsidian
+        sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+        sudo flatpak install -y flathub md.obsidian.Obsidian
     else
-        echo "  obsidian on Linux requires flatpak — install flatpak first or grab the AppImage from https://obsidian.md"
-        exit 1
+        echo "  skipping obsidian: no .deb for this arch and flatpak not installed — grab the AppImage from https://obsidian.md"
+        exit 0
     fi
 
 [group('desktop')]

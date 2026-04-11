@@ -36,4 +36,4 @@ lua-language-server:
 [group('lsp')]
 tinymist:
     @echo "installing/upgrading tinymist..."
-    @{{ sys_install }} tinymist
+    @cargo install --locked tinymist

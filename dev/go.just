@@ -7,6 +7,15 @@ gopls:
     @go install golang.org/x/tools/gopls@latest
 
 [group('go')]
+[script('bash')]
 golangci-lint:
-    @echo "installing/upgrading golangci-lint..."
-    @{{ sys_install }} golangci-lint
+    set -euo pipefail
+    echo "installing/upgrading golangci-lint..."
+    if [[ "{{ host_os }}" == "macos" ]]; then
+        brew install golangci-lint
+    else
+        target="${HOME}/.local/bin"
+        mkdir -p "$target"
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b "$target"
+    fi

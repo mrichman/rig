@@ -31,19 +31,20 @@ black	-	python	uv	-	uv	-	-
 isort	-	python	uv	-	uv	-	-
 pyright	-	python	uv	-	uv	-	-
 pytest	-	python	uv	-	uv	-	-
-prettier	-	node	npm	-	-	-	-
-eslint	-	node	npm	-	-	-	-
+nodejs	node	node	system	-	-	-	-
+prettier	-	node	npm	-	nodejs	-	-
+eslint	-	node	npm	-	nodejs	-	-
 gopls	-	go	go	-	-	-	-
-golangci-lint	-	go	system	-	-	-	-
+golangci-lint	-	go	custom	-	-	rm -f ~/.local/bin/golangci-lint	-
 cargo-edit	cargo-add	rust	cargo	-	-	-	-
 cargo-watch	-	rust	cargo	-	-	-	-
 typst	-	cli	cargo	-	-	cargo uninstall typst-cli	-
-bash-language-server	-	lsp	npm	-	-	-	-
-typescript-language-server	-	lsp	npm	-	-	-	-
+bash-language-server	-	lsp	npm	-	nodejs	-	-
+typescript-language-server	-	lsp	npm	-	nodejs	-	-
 lua-language-server	-	lsp	custom	-	-	rm -rf ~/.local/lib/lua-language-server ~/.local/bin/lua-language-server	-
-tinymist	-	lsp	system	-	-	-	-
+tinymist	-	lsp	cargo	-	-	-	-
 kitty	-	desktop	cask	-	-	-	-
-ghostty	-	desktop	cask	-	-	-	-
+ghostty	-	desktop	cask	-	-	-	macos
 zed	-	desktop	cask	-	-	-	-
 jetbrains-mono-nerd-font	-	desktop	cask	font-jetbrains-mono-nerd-font	-	-	-
 appcleaner	-	desktop	cask	-	-	-	macos

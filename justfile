@@ -78,7 +78,7 @@ cli: ripgrep jq bat fzf htop tmux eza zoxide fd fish awscli starship neovim fish
 python: uv ruff black isort pyright pytest
 
 # Install all Node tools
-node: prettier eslint
+node: nodejs prettier eslint
 
 # Install all Go tools
 go-tools: gopls golangci-lint

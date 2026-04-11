@@ -107,9 +107,27 @@ gh:
     @{{ sys_install }} gh
 
 [group('cli')]
+[script('bash')]
 terraform:
-    @echo "installing/upgrading terraform..."
-    @{{ sys_install }} terraform
+    set -euo pipefail
+    echo "installing/upgrading terraform..."
+    if [[ "{{ host_os }}" == "macos" ]]; then
+        brew install terraform
+        exit 0
+    fi
+    case "{{ host_arch }}" in
+        x86_64)  tf_arch=amd64 ;;
+        aarch64) tf_arch=arm64 ;;
+        *) echo "  unsupported arch: {{ host_arch }}"; exit 1 ;;
+    esac
+    version=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform \
+        | grep -oE '"current_version":"[^"]+"' | cut -d'"' -f4)
+    [[ -z "$version" ]] && { echo "  could not resolve latest terraform version"; exit 1; }
+    tmp=$(mktemp -d)
+    curl -fsSLo "$tmp/tf.zip" "https://releases.hashicorp.com/terraform/${version}/terraform_${version}_linux_${tf_arch}.zip"
+    unzip -o "$tmp/tf.zip" -d "$tmp" >/dev/null
+    sudo install -m 0755 "$tmp/terraform" /usr/local/bin/terraform
+    rm -rf "$tmp"
 
 [group('cli')]
 [script('bash')]
