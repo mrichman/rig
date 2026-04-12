@@ -32,17 +32,17 @@ tmux:
 
 # Target name differs from cargo package name
 [group('cli')]
-fd:
+fd: rust
     @echo "installing/upgrading fd..."
     @cargo install fd-find
 
 [group('cli')]
-eza:
+eza: rust
     @echo "installing/upgrading eza..."
     @cargo install eza
 
 [group('cli')]
-zoxide:
+zoxide: rust
     @echo "installing/upgrading zoxide..."
     @cargo install zoxide
 
@@ -144,11 +144,46 @@ helm:
 [script('bash')]
 op:
     set -euo pipefail
+    source "{{ rig_helpers }}"
     echo "installing/upgrading 1password-cli..."
     if [[ "{{ host_os }}" == "macos" ]]; then
         brew install --cask 1password-cli
+        exit 0
+    fi
+    family=$(rig_pkg_family)
+    if [[ "$family" == "deb" ]]; then
+        # Upstream apt repo — Debian/Ubuntu have no "1password-cli" package by default.
+        keyring=/usr/share/keyrings/1password-archive-keyring.gpg
+        listfile=/etc/apt/sources.list.d/1password.list
+        if [[ ! -s "$keyring" ]]; then
+            curl -fsS https://downloads.1password.com/linux/keys/1password.asc \
+                | sudo gpg --dearmor --yes -o "$keyring"
+        fi
+        if [[ ! -f "$listfile" ]]; then
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring}] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+                | sudo tee "$listfile" >/dev/null
+        fi
+        sudo apt-get update -qq
+        sudo apt-get install -y 1password-cli
+    elif [[ "$family" == "rpm" ]]; then
+        sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
+        {
+            printf '[1password]\n'
+            printf 'name=1Password Stable Channel\n'
+            printf 'baseurl=https://downloads.1password.com/linux/rpm/stable/$basearch\n'
+            printf 'enabled=1\n'
+            printf 'gpgcheck=1\n'
+            printf 'repo_gpgcheck=1\n'
+            printf 'gpgkey=https://downloads.1password.com/linux/keys/1password.asc\n'
+        } | sudo tee /etc/yum.repos.d/1password.repo >/dev/null
+        if command -v dnf &>/dev/null; then
+            sudo dnf install -y 1password-cli
+        else
+            sudo yum install -y 1password-cli
+        fi
     else
-        {{ sys_install }} 1password-cli
+        echo "  skipping 1password-cli: no deb/rpm package for this distro"
+        exit 0
     fi
 
 [group('cli')]
@@ -157,6 +192,6 @@ claude-code:
     @curl -fsSL https://claude.ai/install.sh | bash
 
 [group('cli')]
-typst:
+typst: rust
     @echo "installing/upgrading typst..."
     @cargo install --locked typst-cli

@@ -447,16 +447,62 @@ rig_install_rpm() {
     rm -rf "$tmp"
 }
 
+# Authenticated curl to the GitHub API. Uses $GH_TOKEN or $GITHUB_TOKEN when set
+# to avoid the 60-req/hr unauthenticated rate limit.
+rig_gh_curl() {
+    local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+    if [[ -n "$token" ]]; then
+        curl -fsSL -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.github+json" "$@"
+    else
+        curl -fsSL -H "Accept: application/vnd.github+json" "$@"
+    fi
+}
+
+# Latest release tag for a repo.
+rig_gh_latest_tag() {
+    local repo="$1"
+    rig_gh_curl "https://api.github.com/repos/${repo}/releases/latest" \
+        | grep '"tag_name"' \
+        | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' \
+        | head -1
+}
+
 # Resolve a GitHub "latest release" asset URL matching a filename pattern.
 # Usage: rig_gh_latest_asset <owner/repo> <pattern>
 # Pattern is a POSIX-ERE fragment matched against the filename.
 rig_gh_latest_asset() {
     local repo="$1" pattern="$2"
-    curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" \
+    rig_gh_curl "https://api.github.com/repos/${repo}/releases/latest" \
         | grep -oE '"browser_download_url":[[:space:]]*"[^"]+"' \
         | sed -E 's/.*"(https[^"]+)".*/\1/' \
         | grep -E "$pattern" \
         | head -1
+}
+
+# Install minimal prerequisites commonly expected by upstream curl|sh installers
+# (gnupg, ca-certificates, lsb-release, etc.). Idempotent; no-op on macOS.
+rig_ensure_prereqs() {
+    case "$(uname -s)" in
+        Linux) ;;
+        *) return 0 ;;
+    esac
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq >/dev/null 2>&1 || true
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            curl ca-certificates gnupg unzip tar xz-utils lsb-release \
+            apt-transport-https build-essential pkg-config \
+            >/dev/null 2>&1 || true
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y -q curl ca-certificates gnupg2 unzip tar xz \
+            redhat-lsb-core gcc make pkgconfig >/dev/null 2>&1 || true
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm --needed curl ca-certificates gnupg unzip \
+            tar xz lsb-release base-devel pkgconf >/dev/null 2>&1 || true
+    elif command -v zypper &>/dev/null; then
+        sudo zypper -q install -y curl ca-certificates gpg2 unzip tar xz \
+            lsb-release gcc make pkg-config >/dev/null 2>&1 || true
+    fi
 }
 
 # ── Desktop notifications ────────────────────────────────

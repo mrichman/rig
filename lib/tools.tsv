@@ -10,9 +10,9 @@ bat	-	cli	system	-	-	-	-
 fzf	-	cli	system	-	-	-	-
 htop	-	cli	system	-	-	-	-
 tmux	-	cli	system	-	-	-	-
-fd	-	cli	cargo	-	-	cargo uninstall fd-find	-
-eza	-	cli	cargo	-	-	-	-
-zoxide	-	cli	cargo	-	-	-	-
+fd	-	cli	cargo	-	rust	cargo uninstall fd-find	-
+eza	-	cli	cargo	-	rust	-	-
+zoxide	-	cli	cargo	-	rust	-	-
 fish	-	cli	system	-	-	-	-
 awscli	aws	cli	system	-	-	-	-
 starship	-	cli	custom	-	-	-	-
@@ -34,11 +34,13 @@ pytest	-	python	uv	-	uv	-	-
 nodejs	node	node	system	-	-	-	-
 prettier	-	node	npm	-	nodejs	-	-
 eslint	-	node	npm	-	nodejs	-	-
-gopls	-	go	go	-	-	-	-
+go	-	go	custom	-	-	-	-
+gopls	-	go	go	-	go	-	-
 golangci-lint	-	go	custom	-	-	rm -f ~/.local/bin/golangci-lint	-
-cargo-edit	cargo-add	rust	cargo	-	-	-	-
-cargo-watch	-	rust	cargo	-	-	-	-
-typst	-	cli	cargo	-	-	cargo uninstall typst-cli	-
+rust	cargo	rust	custom	-	-	-	-
+cargo-edit	cargo-add	rust	cargo	-	rust	-	-
+cargo-watch	-	rust	cargo	-	rust	-	-
+typst	-	cli	cargo	-	rust	cargo uninstall typst-cli	-
 bash-language-server	-	lsp	npm	-	nodejs	-	-
 typescript-language-server	-	lsp	npm	-	nodejs	-	-
 lua-language-server	-	lsp	custom	-	-	rm -rf ~/.local/lib/lua-language-server ~/.local/bin/lua-language-server	-

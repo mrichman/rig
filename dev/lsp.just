@@ -14,6 +14,7 @@ typescript-language-server:
 [script('bash')]
 lua-language-server:
     set -euo pipefail
+    source "{{ rig_helpers }}"
     echo "installing/upgrading lua-language-server..."
     case "{{ host_os }}-{{ host_arch }}" in
         macos-aarch64) platform="darwin-arm64" ;;
@@ -22,8 +23,8 @@ lua-language-server:
         linux-x86_64)  platform="linux-x64"    ;;
         *) echo "unsupported platform: {{ host_os }}-{{ host_arch }}"; exit 1 ;;
     esac
-    version=$(curl -s "https://api.github.com/repos/LuaLS/lua-language-server/releases/latest" \
-        | grep '"tag_name"' | sed 's/.*"tag_name": *"\(.*\)".*/\1/')
+    version=$(rig_gh_latest_tag LuaLS/lua-language-server)
+    [[ -z "$version" ]] && { echo "  could not resolve lua-language-server version"; exit 1; }
     cd /tmp
     curl -fL -o lls.tar.gz \
         "https://github.com/LuaLS/lua-language-server/releases/download/${version}/lua-language-server-${version}-${platform}.tar.gz"

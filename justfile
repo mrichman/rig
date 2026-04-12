@@ -4,6 +4,10 @@
 
 set unstable
 
+# Make tool paths installed during `just all` visible to every recipe,
+# including standalone invocations where lib/rig.sh isn't sourced.
+export PATH := env_var_or_default("HOME", "") / ".cargo/bin" + ":" + env_var_or_default("HOME", "") / ".local/bin" + ":" + env_var_or_default("HOME", "") / "go/bin" + ":" + env_var("PATH")
+
 # Show help when invoked with no arguments
 [private]
 default:
@@ -101,6 +105,15 @@ all:
     set -uo pipefail
     source "{{ rig_helpers }}"
 
+    # Install minimal deps (curl, gnupg, ca-certificates, unzip, tar, ...) that
+    # many upstream curl|sh installers quietly expect. No-op on macOS.
+    rig_ensure_prereqs
+
+    # Keep per-tool install logs for debugging.
+    log_dir="${TMPDIR:-/tmp}/rig-logs"
+    rm -rf "$log_dir"
+    mkdir -p "$log_dir"
+
     tools=($(rig_sorted_tools))
     force="{{ force }}"
     max_retries="{{ max_retries }}"
@@ -152,8 +165,10 @@ all:
             printf "\033[32mok\033[0m\n"
         else
             results+=("error")
-            msg=$(echo "$output" | grep -v '^$' | tail -1)
-            messages+=("$msg")
+            log_file="$log_dir/${tool}.log"
+            printf "%s\n" "$output" > "$log_file"
+            msg=$(printf "%s\n" "$output" | grep -v '^$' | tail -1)
+            messages+=("$msg  (log: $log_file)")
             ((errors++))
             printf "\033[31mfail\033[0m\n"
         fi
@@ -200,6 +215,12 @@ all:
 update:
     set -uo pipefail
     source "{{ rig_helpers }}"
+
+    rig_ensure_prereqs
+
+    log_dir="${TMPDIR:-/tmp}/rig-logs"
+    rm -rf "$log_dir"
+    mkdir -p "$log_dir"
 
     tools=($(rig_sorted_tools))
     max_retries="{{ max_retries }}"
@@ -255,8 +276,10 @@ update:
             printf "\033[32mok\033[0m\n"
         else
             results+=("error")
-            msg=$(echo "$output" | grep -v '^$' | tail -1)
-            messages+=("$msg")
+            log_file="$log_dir/${tool}.log"
+            printf "%s\n" "$output" > "$log_file"
+            msg=$(printf "%s\n" "$output" | grep -v '^$' | tail -1)
+            messages+=("$msg  (log: $log_file)")
             ((errors++))
             printf "\033[31mfail\033[0m\n"
         fi
